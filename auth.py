@@ -9,8 +9,9 @@ load_dotenv()
 
 CONSUMER_KEY    = os.getenv("SWIFT_CONSUMER_KEY", "")
 CONSUMER_SECRET = os.getenv("SWIFT_CONSUMER_SECRET", "")
-LICENSE_ID      = os.getenv("SWIFT_LICENSE_ID", "")
-LICENSE_SECRET  = os.getenv("SWIFT_LICENSE_SECRET", "")
+# Sandbox fixed credentials per SwiftRef API spec v4.0.0 — literal values, not placeholders
+LICENSE_ID      = os.getenv("SWIFT_LICENSE_ID", "sandbox-id")
+LICENSE_SECRET  = os.getenv("SWIFT_LICENSE_SECRET", "sandbox-key")
 TOKEN_URL       = os.getenv("SWIFT_TOKEN_URL", "https://sandbox.swift.com/oauth2/v1/token")
 SCOPE           = os.getenv("SWIFT_SCOPE", "")
 
@@ -28,7 +29,7 @@ def _is_token_valid() -> bool:
 
 def get_token_password(scope: str = SCOPE) -> str:
     if not LICENSE_ID or not LICENSE_SECRET:
-        print("[SKIP] Password grant: SWIFT_LICENSE_ID or SWIFT_LICENSE_SECRET not set in .env")
+        print("[SKIP] Password grant: SWIFT_LICENSE_ID and SWIFT_LICENSE_SECRET not set")
         return None
 
     encoded = base64.b64encode(f"{CONSUMER_KEY}:{CONSUMER_SECRET}".encode()).decode()
