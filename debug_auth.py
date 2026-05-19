@@ -1,77 +1,82 @@
 """
-SWIFT OAuth Diagnostic v2 — properly URL-encodes credentials, shows exact payload.
+SWIFT OAuth Diagnostic v3 — correct grant_type=password with License ID/Secret.
 Run: python debug_auth.py
 """
 import os
 import base64
 import requests
-from urllib.parse import quote_plus
 from dotenv import load_dotenv
 
 load_dotenv()
 
-KEY    = os.getenv("SWIFT_CONSUMER_KEY", "")
-SECRET = os.getenv("SWIFT_CONSUMER_SECRET", "")
-URL    = "https://sandbox.swift.com/oauth2/v1/token"
+CONSUMER_KEY    = os.getenv("SWIFT_CONSUMER_KEY", "")
+CONSUMER_SECRET = os.getenv("SWIFT_CONSUMER_SECRET", "")
+LICENSE_ID      = os.getenv("SWIFT_LICENSE_ID", "")
+LICENSE_SECRET  = os.getenv("SWIFT_LICENSE_SECRET", "")
+URL             = "https://sandbox.swift.com/oauth2/v1/token"
 
-# ── Credential sanity check ──────────────────────────────────────────────────
+encoded_basic = base64.b64encode(f"{CONSUMER_KEY}:{CONSUMER_SECRET}".encode()).decode()
+
 print("=" * 60)
 print("CREDENTIAL CHECK")
 print("=" * 60)
-print(f"Consumer Key    : {KEY}")
-print(f"Secret length   : {len(SECRET)} chars")
-print(f"Secret preview  : {SECRET[:4]}{'*' * (len(SECRET)-4) if len(SECRET) > 4 else '(too short!)'}")
-print(f"Secret set      : {'YES' if SECRET and SECRET != 'your_consumer_secret_here' else '❌ NO'}")
+print(f"Consumer Key    : {CONSUMER_KEY}")
+print(f"Consumer Secret : {CONSUMER_SECRET[:4]}{'*'*12}")
+print(f"License ID      : {LICENSE_ID or '❌ NOT SET'}")
+print(f"License Secret  : {LICENSE_SECRET[:4]+'*'*12 if LICENSE_SECRET else '❌ NOT SET'}")
 
-special_chars = [c for c in '&=+#%@ ' if c in SECRET]
-if special_chars:
-    print(f"⚠ Special chars in secret: {special_chars} — must be URL-encoded in body")
-else:
-    print("Secret chars    : No special chars detected")
-
-# Build properly URL-encoded values
-encoded_basic = base64.b64encode(f"{KEY}:{SECRET}".encode()).decode()
-key_enc    = quote_plus(KEY)
-secret_enc = quote_plus(SECRET)
-
-print(f"\nBase64 basic    : {encoded_basic[:30]}...")
-print(f"URL-encoded key : {key_enc[:30]}")
-print(f"URL-encoded sec : {secret_enc[:4]}{'*'*10}")
-
-# ── Attempts (all using dict so requests handles encoding) ───────────────────
 print("\n" + "=" * 60)
 print("AUTH ATTEMPTS")
 print("=" * 60)
 
 attempts = [
     {
-        "label": "1. Body dict — client_id/secret, no scope [PROPER ENCODING]",
-        "headers": {"Content-Type": "application/x-www-form-urlencoded", "Accept": "application/json"},
-        "data": {"grant_type": "client_credentials", "client_id": KEY, "client_secret": SECRET},
+        "label": "1. PASSWORD grant — Basic auth + License ID/Secret in body",
+        "headers": {
+            "Authorization": f"Basic {encoded_basic}",
+            "Content-Type": "application/x-www-form-urlencoded",
+            "Accept": "application/json",
+        },
+        "data": {
+            "grant_type": "password",
+            "username": LICENSE_ID,
+            "password": LICENSE_SECRET,
+        },
     },
     {
-        "label": "2. Body dict — client_id/secret + scope=swift.swiftref",
-        "headers": {"Content-Type": "application/x-www-form-urlencoded", "Accept": "application/json"},
-        "data": {"grant_type": "client_credentials", "client_id": KEY, "client_secret": SECRET,
-                 "scope": "swift.swiftref"},
+        "label": "2. PASSWORD grant — Basic auth + License ID/Secret + scope",
+        "headers": {
+            "Authorization": f"Basic {encoded_basic}",
+            "Content-Type": "application/x-www-form-urlencoded",
+            "Accept": "application/json",
+        },
+        "data": {
+            "grant_type": "password",
+            "username": LICENSE_ID,
+            "password": LICENSE_SECRET,
+            "scope": "swift.swiftref",
+        },
     },
     {
-        "label": "3. Basic auth dict — no scope [PROPER ENCODING]",
-        "headers": {"Authorization": f"Basic {encoded_basic}",
-                    "Content-Type": "application/x-www-form-urlencoded", "Accept": "application/json"},
+        "label": "3. PASSWORD grant — Consumer Key/Secret as username/password (no Basic auth)",
+        "headers": {
+            "Content-Type": "application/x-www-form-urlencoded",
+            "Accept": "application/json",
+        },
+        "data": {
+            "grant_type": "password",
+            "username": CONSUMER_KEY,
+            "password": CONSUMER_SECRET,
+        },
+    },
+    {
+        "label": "4. CLIENT CREDENTIALS — Basic auth header (original approach)",
+        "headers": {
+            "Authorization": f"Basic {encoded_basic}",
+            "Content-Type": "application/x-www-form-urlencoded",
+            "Accept": "application/json",
+        },
         "data": {"grant_type": "client_credentials"},
-    },
-    {
-        "label": "4. Basic auth dict — scope=swift.swiftref",
-        "headers": {"Authorization": f"Basic {encoded_basic}",
-                    "Content-Type": "application/x-www-form-urlencoded", "Accept": "application/json"},
-        "data": {"grant_type": "client_credentials", "scope": "swift.swiftref"},
-    },
-    {
-        "label": "5. requests HTTPBasicAuth — no scope",
-        "headers": {"Content-Type": "application/x-www-form-urlencoded", "Accept": "application/json"},
-        "data": {"grant_type": "client_credentials"},
-        "auth": (KEY, SECRET),
     },
 ]
 
@@ -79,10 +84,7 @@ success = False
 for a in attempts:
     print(f"\n{a['label']}")
     try:
-        kwargs = {"headers": a["headers"], "data": a["data"], "timeout": 10}
-        if "auth" in a:
-            kwargs["auth"] = a["auth"]
-        r = requests.post(URL, **kwargs)
+        r = requests.post(URL, headers=a["headers"], data=a["data"], timeout=10)
         print(f"  Status  : {r.status_code}")
         print(f"  Response: {r.text[:300]}")
         if r.ok:
@@ -96,9 +98,20 @@ for a in attempts:
 print("\n" + "=" * 60)
 if not success:
     print("❌ All attempts failed.\n")
-    print("NEXT STEPS:")
-    print("1. Go to developer.swift.com → Apps → Your App → Credentials")
-    print("2. Click 'Regenerate Secret' and copy the new value carefully")
-    print("3. Paste into .env as SWIFT_CONSUMER_SECRET=<value>  (no quotes)")
-    print("4. Make sure the app has at least one API product subscribed")
-    print("5. Run this script again")
+    print("WHAT YOU NEED:")
+    print("  SWIFT uses TWO separate credentials:")
+    print()
+    print("  1. Consumer Key + Secret  →  from developer.swift.com (you have these)")
+    print("     Used in: Authorization: Basic header")
+    print()
+    print("  2. License ID + License Secret  →  from swift.com account")
+    print("     Used in: grant body as username + password")
+    print()
+    print("HOW TO GET License ID & Secret:")
+    print("  Option A: Log into swift.com → My Profile → License Management")
+    print("  Option B: If no swift.com account, email: developer-support@swift.com")
+    print("            and ask for sandbox License ID and License Secret")
+    print()
+    print("Then add to your .env:")
+    print("  SWIFT_LICENSE_ID=your_license_id")
+    print("  SWIFT_LICENSE_SECRET=your_license_secret")
