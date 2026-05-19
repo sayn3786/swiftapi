@@ -11,8 +11,9 @@ load_dotenv()
 
 CONSUMER_KEY    = os.getenv("SWIFT_CONSUMER_KEY", "")
 CONSUMER_SECRET = os.getenv("SWIFT_CONSUMER_SECRET", "")
-LICENSE_ID      = os.getenv("SWIFT_LICENSE_ID", "")
-LICENSE_SECRET  = os.getenv("SWIFT_LICENSE_SECRET", "")
+# SwiftRef API spec v4.0.0: sandbox License ID/Secret are literally "sandbox-id" / "sandbox-key"
+LICENSE_ID      = os.getenv("SWIFT_LICENSE_ID", "sandbox-id")
+LICENSE_SECRET  = os.getenv("SWIFT_LICENSE_SECRET", "sandbox-key")
 URL             = "https://sandbox.swift.com/oauth2/v1/token"
 
 encoded_basic = base64.b64encode(f"{CONSUMER_KEY}:{CONSUMER_SECRET}".encode()).decode()
