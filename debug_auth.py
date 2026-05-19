@@ -50,10 +50,10 @@ attempts = [
         "data": {"grant_type": "client_credentials", "client_id": KEY, "client_secret": SECRET},
     },
     {
-        "label": "2. Body dict — client_id/secret + scope=swift.messaging.api",
+        "label": "2. Body dict — client_id/secret + scope=swift.swiftref",
         "headers": {"Content-Type": "application/x-www-form-urlencoded", "Accept": "application/json"},
         "data": {"grant_type": "client_credentials", "client_id": KEY, "client_secret": SECRET,
-                 "scope": "swift.messaging.api"},
+                 "scope": "swift.swiftref"},
     },
     {
         "label": "3. Basic auth dict — no scope [PROPER ENCODING]",
@@ -62,10 +62,10 @@ attempts = [
         "data": {"grant_type": "client_credentials"},
     },
     {
-        "label": "4. Basic auth dict — scope=swift.messaging.api",
+        "label": "4. Basic auth dict — scope=swift.swiftref",
         "headers": {"Authorization": f"Basic {encoded_basic}",
                     "Content-Type": "application/x-www-form-urlencoded", "Accept": "application/json"},
-        "data": {"grant_type": "client_credentials", "scope": "swift.messaging.api"},
+        "data": {"grant_type": "client_credentials", "scope": "swift.swiftref"},
     },
     {
         "label": "5. requests HTTPBasicAuth — no scope",
