@@ -1,5 +1,4 @@
 import os
-import base64
 import time
 import uuid
 import requests
@@ -12,20 +11,20 @@ CONSUMER_SECRET = os.getenv("SWIFT_CONSUMER_SECRET")
 TOKEN_URL       = os.getenv("SWIFT_TOKEN_URL", "https://sandbox.swift.com/oauth2/v1/token")
 SCOPE           = os.getenv("SWIFT_SCOPE", "swift.messaging.api")
 
-# ── Mode 1: Simple client_credentials (works for SwiftRef, KYC, Analytics) ──
+# ── Mode 1: client_credentials — credentials in request body (SWIFT sandbox format) ──
 
 def get_token_client_credentials(scope: str = SCOPE) -> str:
-    credentials = f"{CONSUMER_KEY}:{CONSUMER_SECRET}"
-    encoded = base64.b64encode(credentials.encode()).decode()
-
-    data = {"grant_type": "client_credentials"}
+    data = {
+        "grant_type": "client_credentials",
+        "client_id": CONSUMER_KEY,
+        "client_secret": CONSUMER_SECRET,
+    }
     if scope:
         data["scope"] = scope
 
     response = requests.post(
         TOKEN_URL,
         headers={
-            "Authorization": f"Basic {encoded}",
             "Content-Type": "application/x-www-form-urlencoded",
             "Accept": "application/json",
         },
@@ -88,18 +87,16 @@ def get_token_jwt_bearer(scope: str = SCOPE) -> str:
 
     assertion = pyjwt.encode(payload=payload, headers=headers, key=private_key, algorithm="RS256")
 
-    credentials = f"{CONSUMER_KEY}:{CONSUMER_SECRET}"
-    encoded = base64.b64encode(credentials.encode()).decode()
-
     response = requests.post(
         TOKEN_URL,
         headers={
-            "Authorization": f"Basic {encoded}",
             "Content-Type": "application/x-www-form-urlencoded",
             "Accept": "application/json",
         },
         data={
             "grant_type": "urn:ietf:params:oauth:grant-type:jwt-bearer",
+            "client_id": CONSUMER_KEY,
+            "client_secret": CONSUMER_SECRET,
             "assertion": assertion,
             "scope": scope,
         },
